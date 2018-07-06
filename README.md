@@ -1,3 +1,4 @@
+
 # DER Signatures
 
 Another class that we need to learn to serialize are signatures. Much like the SEC format, it needs to encode two different numbers, r and s. Unfortunately, unlike S256Point, Signature cannot be compressed as s cannot be derived solely from r.
@@ -19,7 +20,7 @@ Here's how this is coded in Python:
 
 ```python
 class Signature:
-
+...
     def der(self):
         rbin = self.r.to_bytes(32, byteorder='big')
         # remove all null bytes at the beginning
@@ -41,7 +42,21 @@ class Signature:
 
 Overall, this is an inefficient way to encode r and s as there are at least 4 bytes that aren't necessary.
 
+### Try it
+
+#### Verify the DER signature for the hash of "ECDSA is awesome!" for the given SEC pubkey
+
+`z = int.from_bytes(double_sha256('ECDSA is awesome!'), 'big')`
+
+Public Key in SEC Format: 
+0204519fac3d910ca7e7138f7013706f619fa8f033e6ec6e09370ea38cee6a7574
+
+Signature in DER Format: 304402201f62993ee03fca342fcb45929993fa6ee885e00ddad8de154f268d98f083991402201e1ca12ad140c04e0e022c38f7ce31da426b8009d02832f0b44f39a6b178b7a1
+
+
 ```python
+# Exercise 2.1
+
 from ecc import S256Point, Signature
 from helper import double_sha256
 
