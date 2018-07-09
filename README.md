@@ -55,8 +55,6 @@ Signature in DER Format: 304402201f62993ee03fca342fcb45929993fa6ee885e00ddad8de1
 
 
 ```python
-# Exercise 2.1
-
 from ecc import S256Point, Signature
 from helper import double_sha256
 
@@ -67,7 +65,34 @@ sec = bytes.fromhex('0204519fac3d910ca7e7138f7013706f619fa8f033e6ec6e09370ea38ce
 z = int.from_bytes(double_sha256(b'ECDSA is awesome!'), 'big')
 
 # parse the der format to get the signature
+sig = Signature.parse(der)
 # parse the sec format to get the public key
+point = S256Point.parse(sec)
 
 # use the verify method on S256Point to validate the signature
+print(point.verify(z, sig))
 ```
+
+
+    ---------------------------------------------------------------------------
+
+    AttributeError                            Traceback (most recent call last)
+
+    <ipython-input-2-f7d155c44f3d> in <module>()
+         11 sig = Signature.parse(der)
+         12 # parse the sec format to get the public key
+    ---> 13 point = S256Point.parse(sec)
+         14 
+         15 # use the verify method on S256Point to validate the signature
+
+
+    ~/crypto/pb-exercises-mod/session3/der-signatures-jsong/ecc.py in parse(self, sec_bin)
+        496         is_even = sec_bin[0] == 2
+        497         x = S256Field(int(sec_bin[1:].hex(), 16))
+    --> 498         # right side of the equation y^2 = x^3 + 7
+        499         alpha = x**3 + S256Field(B)
+        500         # solve for left side
+
+
+    AttributeError: 'S256Field' object has no attribute 'sqrt'
+

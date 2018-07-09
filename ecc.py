@@ -167,7 +167,7 @@ class Point:
         if self.x is None:
             return 'Point(infinity)'
         else:
-            return 'Point({},{})'.format(self.x, self.y)
+            return 'Point({},{})_{}'.format(self.x.num, self.y.num, self.x.prime)
 
     def __add__(self, other):
         if self.a != other.a or self.b != other.b:
@@ -185,7 +185,7 @@ class Point:
         # Remember to return an instance of this class:
         # self.__class__(x, y, a, b)
             return self.__class__(None, None, self.a, self.b)
-
+ 
         # Case 2: self.x != other.x
         if self.x != other.x:
         # Formula (x3,y3)==(x1,y1)+(x2,y2)
@@ -249,7 +249,7 @@ class PointTest(TestCase):
         self.assertEqual(a+b, b)
         self.assertEqual(b+a, b)
         self.assertEqual(b+c, a)
-
+    
     def test_add1(self):
         a = Point(x=3, y=7, a=5, b=7)
         b = Point(x=-1, y=-1, a=5, b=7)
@@ -270,10 +270,10 @@ class ECCTest(TestCase):
         prime = 223
         a = FieldElement(0, prime)
         b = FieldElement(7, prime)
-
+        
         valid_points = ((192,105), (17,56), (1,193))
         invalid_points = ((200,119), (42,99))
-
+        
         # iterate over valid points
         for x_raw, y_raw in valid_points:
             # Initialize points this way:
@@ -309,7 +309,7 @@ class ECCTest(TestCase):
         b = FieldElement(7, prime)
 
         additions = (
-            # (x1, y1, x2, y2, x3, y3)
+            # (x1, y1, x2, y2, x3, y3)         
             (192, 105, 17, 56, 170, 142),
             (47, 71, 117, 141, 60, 139),
             (143, 98, 76, 66, 47, 71),
@@ -379,9 +379,9 @@ class ECCTest(TestCase):
                 x2 = FieldElement(x2_raw, prime)
                 y2 = FieldElement(y2_raw, prime)
                 p2 = Point(x2, y2, a, b)
-
+        
             # check that the product is equal to the expected point
-            self.assertEqual(s*p1, p2)
+            self.assertEqual(s*p1, p2)        
 
 
 A = 0
@@ -401,6 +401,9 @@ class S256Field(FieldElement):
     def __repr__(self):
         return self.hex()
 
+    def sqrt(self):
+        return self**((P+1)//4)
+
 
 class S256Point(Point):
     bits = 256
@@ -418,7 +421,7 @@ class S256Point(Point):
         if self.x is None:
             return 'Point(infinity)'
         else:
-            return 'Point({},{})'.format(self.x, self.y)
+            return 'Point({},{})_{}'.format(self.x.num, self.y.num, self.x.prime)
 
     def __rmul__(self, coefficient):
         # we want to mod by N to make this simple
@@ -470,11 +473,48 @@ class S256Point(Point):
         # return as a string, you can use .decode('ascii') to do this.
         return address.decode('ascii')
 
+    def verify(self, z, sig):
+        # remember sig.r and sig.s are the main things we're checking
+        # remember 1/s = pow(s, N-2, N)
+        s_inv = pow(sig.s, N-2, N)
+        # u = z / s
+        u = z * s_inv % N
+        # v = r / s
+        v = sig.r * s_inv % N
+        # u*G + v*P should have as the x coordinate, r
+        total = u*G + v*self
+        return total.x.num == sig.r
+
+    @classmethod
+    def parse(self, sec_bin):
+        '''returns a Point object from a compressed sec binary (not hex)
+        '''
+        if sec_bin[0] == 4:
+            x = int(sec_bin[1:33].hex(), 16)
+            y = int(sec_bin[33:65].hex(), 16)
+            return S256Point(x=x, y=y)
+        is_even = sec_bin[0] == 2
+        x = S256Field(int(sec_bin[1:].hex(), 16))
+        # right side of the equation y^2 = x^3 + 7
+        alpha = x**3 + S256Field(B)
+        # solve for left side
+        beta = alpha.sqrt()
+        if beta.num % 2 == 0:
+            even_beta = beta
+            odd_beta = S256Field(P - beta.num)
+        else:
+            even_beta = S256Field(P - beta.num)
+            odd_beta = beta
+        if is_even:
+            return S256Point(x, even_beta)
+        else:
+            return S256Point(x, odd_beta)
 
 
 G = S256Point(
     0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798,
     0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8)
+
 
 class S256Test(TestCase):
 
@@ -545,6 +585,20 @@ class S256Test(TestCase):
         self.assertEqual(
             point.address(compressed=False, testnet=True), testnet_address)
 
+    def test_verify(self):
+        point = S256Point(
+            0x887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c,
+            0x61de6d95231cd89026e286df3b6ae4a894a3378e393e93a0f45b666329a0ae34)
+        z = 0xec208baa0fc1c19f708a9ca96fdeff3ac3f230bb4a7ba4aede4942ad003c0f60
+        r = 0xac8d1c87e51d0d441be8b3dd5b05c8795b48875dffe00b7ffcfac23010d3a395
+        s = 0x68342ceff8935ededd102dd876ffd6ba72d6a427a3edb13d26eb0781cb423c4
+        self.assertTrue(point.verify(z, Signature(r, s)))
+        z = 0x7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d
+        r = 0xeff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c
+        s = 0xc7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab6
+        self.assertTrue(point.verify(z, Signature(r, s)))
+
+
 class Signature:
 
     def __init__(self, r, s):
@@ -558,12 +612,12 @@ class Signature:
         # convert the r part to bytes
         rbin = self.r.to_bytes(32, byteorder='big')
         # if rbin has a high bit, add a 00
-        if rbin[0] > 128:
+        if rbin[0] >= 128:
             rbin = b'\x00' + rbin
         result = bytes([2, len(rbin)]) + rbin
         sbin = self.s.to_bytes(32, byteorder='big')
         # if sbin has a high bit, add a 00
-        if sbin[0] > 128:
+        if sbin[0] >= 128:
             sbin = b'\x00' + sbin
         result += bytes([2, len(sbin)]) + sbin
         return bytes([0x30, len(result)]) + result
@@ -616,3 +670,57 @@ class PrivateKey:
 
     def hex(self):
         return '{:x}'.format(self.secret).zfill(64)
+
+    def sign(self, z):
+        # we need a random number k: randint(0, 2**256)
+        k = randint(0, 2**256)
+        # r is the x coordinate of the resulting point k*G
+        r = (k*G).x.num
+        # remember 1/k = pow(k, N-2, N)
+        k_inv = pow(k, N-2, N)
+        # s = (z+r*secret) / k
+        s = (z + r*self.secret) * k_inv % N
+        if s > N/2:
+            s = N - s
+        # return an instance of Signature:
+        # Signature(r, s)
+        return Signature(r, s)
+
+    def wif(self, compressed=True, testnet=False):
+        # convert the secret from integer to a 32-bytes in big endian using num.to_bytes(32, 'big')
+        secret_bytes = self.secret.to_bytes(32, 'big')
+        # prepend b'\xef' on testnet, b'\x80' on mainnet
+        if testnet:
+            prefix = b'\xef'
+        else:
+            prefix = b'\x80'
+        # append b'\x01' if compressed
+        if compressed:
+            suffix = b'\x01'
+        else:
+            suffix = b''
+        # encode_base58_checksum the whole thing
+        return encode_base58_checksum(prefix + secret_bytes + suffix)
+
+
+class PrivateKeyTest(TestCase):
+
+    def test_sign(self):
+        pk = PrivateKey(randint(0, 2**256))
+        z = randint(0, 2**256)
+        sig = pk.sign(z)
+        self.assertTrue(pk.point.verify(z, sig))
+
+    def test_wif(self):
+        pk = PrivateKey(2**256-2**199)
+        expected = 'L5oLkpV3aqBJ4BgssVAsax1iRa77G5CVYnv9adQ6Z87te7TyUdSC'
+        self.assertEqual(pk.wif(compressed=True, testnet=False), expected)
+        pk = PrivateKey(2**256-2**201)
+        expected = '93XfLeifX7Jx7n7ELGMAf1SUR6f9kgQs8Xke8WStMwUtrDucMzn'
+        self.assertEqual(pk.wif(compressed=False, testnet=True), expected)
+        pk = PrivateKey(0x0dba685b4511dbd3d368e5c4358a1277de9486447af7b3604a69b8d9d8b7889d)
+        expected = '5HvLFPDVgFZRK9cd4C5jcWki5Skz6fmKqi1GQJf5ZoMofid2Dty'
+        self.assertEqual(pk.wif(compressed=False, testnet=False), expected)
+        pk = PrivateKey(0x1cca23de92fd1862fb5b76e5f4f50eb082165e5191e116c18ed1a6b24be6a53f)
+        expected = 'cNYfWuhDpbNM1JWc3c6JTrtrFVxU4AGhUKgw5f93NP2QaBqmxKkg'
+        self.assertEqual(pk.wif(compressed=True, testnet=True), expected)
