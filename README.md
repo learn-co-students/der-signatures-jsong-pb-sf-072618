@@ -3,7 +3,7 @@
 
 Another class that we need to learn to serialize are signatures. Much like the SEC format, it needs to encode two different numbers, r and s. Unfortunately, unlike S256Point, Signature cannot be compressed as s cannot be derived solely from r.
 
-The standard for serializing signatures is called DER format. DER stands for ... and was used by Satoshi to create Bitcoin. This was most likely because the standard was already defined in 2008 and it was easy enough to adopt, rather than creating a new standard.
+The standard for serializing signatures is called DER format. DER stands for Distinguished Encoding Rules and was used by Satoshi to create Bitcoin. This was most likely because the standard was already defined in 2008 and it was easy enough to adopt, rather than creating a new standard.
 
 DER Signatures are created like this:
 
@@ -13,6 +13,8 @@ DER Signatures are created like this:
 4. Encode r as a big endian integer, but prepend with 0x00 byte if r's first byte >= 0x80. Add this to the result
 5. Append the marker byte (0x02)
 6. Encode s as a big endian integer, but prepend with 0x00 byte if s's first byte >= 0x80. Add this to the result
+
+![DER Signature](./der_signature.png)
 
 Because we know r is a 256-bit integer, r will be at most 32-bytes expressed as big-endian. It's also possible the first byte could be >= 0x80, so part 4 can be at most 33-bytes. However, if r is a relatively small number, it could be less than 32 bytes. Same goes for s and part 6.
 
@@ -65,34 +67,7 @@ sec = bytes.fromhex('0204519fac3d910ca7e7138f7013706f619fa8f033e6ec6e09370ea38ce
 z = int.from_bytes(double_sha256(b'ECDSA is awesome!'), 'big')
 
 # parse the der format to get the signature
-sig = Signature.parse(der)
 # parse the sec format to get the public key
-point = S256Point.parse(sec)
 
 # use the verify method on S256Point to validate the signature
-print(point.verify(z, sig))
 ```
-
-
-    ---------------------------------------------------------------------------
-
-    AttributeError                            Traceback (most recent call last)
-
-    <ipython-input-2-f7d155c44f3d> in <module>()
-         11 sig = Signature.parse(der)
-         12 # parse the sec format to get the public key
-    ---> 13 point = S256Point.parse(sec)
-         14 
-         15 # use the verify method on S256Point to validate the signature
-
-
-    ~/crypto/pb-exercises-mod/session3/der-signatures-jsong/ecc.py in parse(self, sec_bin)
-        496         is_even = sec_bin[0] == 2
-        497         x = S256Field(int(sec_bin[1:].hex(), 16))
-    --> 498         # right side of the equation y^2 = x^3 + 7
-        499         alpha = x**3 + S256Field(B)
-        500         # solve for left side
-
-
-    AttributeError: 'S256Field' object has no attribute 'sqrt'
-

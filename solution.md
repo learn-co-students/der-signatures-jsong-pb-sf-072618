@@ -3,7 +3,7 @@
 
 Another class that we need to learn to serialize are signatures. Much like the SEC format, it needs to encode two different numbers, r and s. Unfortunately, unlike S256Point, Signature cannot be compressed as s cannot be derived solely from r.
 
-The standard for serializing signatures is called DER format. DER stands for ... and was used by Satoshi to create Bitcoin. This was most likely because the standard was already defined in 2008 and it was easy enough to adopt, rather than creating a new standard.
+The standard for serializing signatures is called DER format. DER stands for Distinguished Encoding Rules and was used by Satoshi to create Bitcoin. This was most likely because the standard was already defined in 2008 and it was easy enough to adopt, rather than creating a new standard.
 
 DER Signatures are created like this:
 
@@ -13,6 +13,8 @@ DER Signatures are created like this:
 4. Encode r as a big endian integer, but prepend with 0x00 byte if r's first byte >= 0x80. Add this to the result
 5. Append the marker byte (0x02)
 6. Encode s as a big endian integer, but prepend with 0x00 byte if s's first byte >= 0x80. Add this to the result
+
+![DER Signature](./der_signature.png)
 
 Because we know r is a 256-bit integer, r will be at most 32-bytes expressed as big-endian. It's also possible the first byte could be >= 0x80, so part 4 can be at most 33-bytes. However, if r is a relatively small number, it could be less than 32 bytes. Same goes for s and part 6.
 
